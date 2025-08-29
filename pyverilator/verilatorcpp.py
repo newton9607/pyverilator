@@ -1,5 +1,6 @@
 def header_cpp(top_module):
-    s = """#include <cstddef>
+    s = """
+#include <cstddef>
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include "{module_filename}.h"
@@ -8,7 +9,8 @@ def header_cpp(top_module):
 
 
 def var_declaration_cpp(top_module, inputs, outputs, internal_signals, json_data):
-    s = """// pyverilator defined values
+    s = """
+// pyverilator defined values
 // first declare variables as extern
 extern const char* _pyverilator_module_name;
 extern const uint32_t _pyverilator_num_inputs;
@@ -61,9 +63,11 @@ vl_finish_callback vl_user_finish = NULL;
     return s
 
 def function_definitions_cpp(top_module, inputs, outputs, internal_signals, json_data):
-    constant_part = """double sc_time_stamp() {{
-return main_time;
+    constant_part = """
+double sc_time_stamp() {{
+    return main_time;
 }}
+
 void vl_finish (const char* filename, int linenum, const char* hier) VL_MT_UNSAFE {{
     if (vl_user_finish) {{
        (*vl_user_finish)(filename, linenum, hier);
@@ -78,78 +82,99 @@ void vl_finish (const char* filename, int linenum, const char* hier) VL_MT_UNSAF
         Verilated::gotFinish(true);
     }}
 }}
+
 // function definitions
 // helper functions for basic verilator tasks
 extern "C" {{ //Open an extern C closed in the footer
-{module_filename}* construct() {{
-    Verilated::traceEverOn(true);
-    {module_filename}* top = new {module_filename}();
-    return top;
-}}
-int eval({module_filename}* top) {{
-    top->eval();
-    main_time++;
-    return 0;
-}}
-int destruct({module_filename}* top) {{
-    if (top != nullptr) {{
-        delete top;
-        top = nullptr;
+
+    {module_filename}* construct() {{
+        Verilated::traceEverOn(true);
+        {module_filename}* top = new {module_filename}();
+        return top;
     }}
-    return 0;
-}}
-VerilatedVcdC* start_vcd_trace({module_filename}* top, const char* filename) {{
-    VerilatedVcdC* tfp = new VerilatedVcdC;
-    top->trace(tfp, 99);
-    tfp->open(filename);
-    return tfp;
-}}
-int add_to_vcd_trace(VerilatedVcdC* tfp, int time) {{
-    tfp->dump(time);
-    return 0;
-}}
-int flush_vcd_trace(VerilatedVcdC* tfp) {{
-    tfp->flush();
-    return 0;
-}}
-int stop_vcd_trace(VerilatedVcdC* tfp) {{
-    tfp->close();
-    return 0;
-}}
-bool get_finished() {{
-    return Verilated::gotFinish();
-}}
-void set_finished(bool b) {{
-    Verilated::gotFinish(b);
-}}
-void set_vl_finish_callback(vl_finish_callback callback) {{
-    vl_user_finish = callback;
-}}
-void set_command_args(int argc, char** argv) {{
-    Verilated::commandArgs(argc, argv);
-}}
-""".format(module_filename='V' + top_module)
-    get_functions = "\n".join(map(lambda port: (
-        "uint32_t get_{portname}({module_filename}* top, int word)"
-        "{{ return top->{portname}[word];}}" if port[1] > 64 else (
-            "uint64_t get_{portname}({module_filename}* top)"
-            "{{return top->{portname};}}" if port[1] > 32 else
-            "uint32_t get_{portname}({module_filename}* top)"
-            "{{return top->{portname};}}")).format(module_filename='V' + top_module, portname=port[0]),
-                                  outputs + inputs + internal_signals))
-    set_functions = "\n".join(map(lambda port: (
-        "int set_{portname}({module_filename}* top, int word, uint64_t new_value)"
-        "{{ top->{portname}[word] = new_value; return 0;}}" if port[1] > 64 else (
-            "int set_{portname}({module_filename}* top, uint64_t new_value)"
-            "{{ top->{portname} = new_value; return 0;}}" if port[1] > 32 else
-            "int set_{portname}({module_filename}* top, uint32_t new_value)"
-            "{{ top->{portname} = new_value; return 0;}}")).format(module_filename='V' + top_module, portname=port[0])
-                                  , inputs))
+    int eval({module_filename}* top) {{
+        top->eval();
+        main_time++;
+        return 0;
+    }}
+    int destruct({module_filename}* top) {{
+        if (top != nullptr) {{
+            delete top;
+            top = nullptr;
+        }}
+        return 0;
+    }}
+    VerilatedVcdC* start_vcd_trace({module_filename}* top, const char* filename) {{
+        VerilatedVcdC* tfp = new VerilatedVcdC;
+        top->trace(tfp, 99);
+        tfp->open(filename);
+        return tfp;
+    }}
+    int add_to_vcd_trace(VerilatedVcdC* tfp, int time) {{
+        tfp->dump(time);
+        return 0;
+    }}
+    int flush_vcd_trace(VerilatedVcdC* tfp) {{
+        tfp->flush();
+        return 0;
+    }}
+    int stop_vcd_trace(VerilatedVcdC* tfp) {{
+        tfp->close();
+        return 0;
+    }}
+    bool get_finished() {{
+        return Verilated::gotFinish();
+    }}
+    void set_finished(bool b) {{
+        Verilated::gotFinish(b);
+    }}
+    void set_vl_finish_callback(vl_finish_callback callback) {{
+        vl_user_finish = callback;
+    }}
+    void set_command_args(int argc, char** argv) {{
+        Verilated::commandArgs(argc, argv);
+    }}  
+    """.format(module_filename='V' + top_module)
+    
+    def get_ports(port):
+        if port[1] > 64:
+            return "\tuint32_t get_{portname}({module_filename}* top, int word) {{ return top->{portname}[word];}}".format(
+                module_filename='V' + top_module, portname=port[0]
+            )
+        elif port[1] > 32:
+            return "\tuint64_t get_{portname}({module_filename}* top) {{ return top->{portname};}}".format(
+                module_filename='V' + top_module, portname=port[0]
+            )
+        else:
+            return "\tuint32_t get_{portname}({module_filename}* top) {{ return top->{portname};}}".format(
+                module_filename='V' + top_module, portname=port[0]
+            )
+
+    get_functions = "\n".join(map(get_ports, outputs + inputs + internal_signals))
+
+    def set_ports(port):
+        if port[1] > 64:
+            return "\tint set_{portname}({module_filename}* top, int word, uint64_t new_value){{ top->{portname}[word] = new_value; return 0;}}".format(
+                module_filename='V' + top_module, portname=port[0]
+            )
+        elif port[1] > 32:
+            return "\tint set_{portname}({module_filename}* top, uint64_t new_value){{ top->{portname} = new_value; return 0;}}".format(
+                module_filename='V' + top_module, portname=port[0]
+            )
+        else:
+            return "\tint set_{portname}({module_filename}* top, uint32_t new_value){{ top->{portname} = new_value; return 0;}}".format(
+                module_filename='V' + top_module, portname=port[0]
+            )
+
+    set_functions = "\n".join(map(set_ports, inputs))
     footer = "}"
+    
     return "\n".join([constant_part, get_functions, set_functions, footer])
 
 
 def template_cpp(top_module, inputs, outputs, internal_signals, json_data):
-    return "\n".join([header_cpp(top_module),
-                      var_declaration_cpp(top_module, inputs, outputs, internal_signals, json_data),
-                      function_definitions_cpp(top_module, inputs, outputs, internal_signals, json_data)])
+    return "\n".join([
+        header_cpp(top_module),
+        var_declaration_cpp(top_module, inputs, outputs, internal_signals, json_data),
+        function_definitions_cpp(top_module, inputs, outputs, internal_signals, json_data)
+    ])
