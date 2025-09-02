@@ -371,7 +371,7 @@ class PyVerilator:
     @classmethod
     def build(cls, top_verilog_file, verilog_path = [], build_dir = 'obj_dir',
               json_data = None, gen_only = False, quiet=False,
-              command_args=(), verilog_defines=()):
+              command_args=(), verilog_defines=(), parameters=[]):
         """Build an object file from verilog and load it into python.
 
         Creates a folder build_dir in which it puts all the files necessary to create
@@ -394,6 +394,8 @@ class PyVerilator:
         ``command_args`` is passed to Verilator as its argv.  It can be used to pass arguments to the $test$plusargs and $value$plusargs system tasks.
 
         ``verilog_defines`` is a list of preprocessor defines; each entry should be a string, and defined macros with value should be specified as "MACRO=value".
+
+        ``parameters`` is a list of parameters to be passed to the Verilator model. Each entry should be a string in the form "PARAMETER_NAME=VALUE". Used for parameteric instantiation.
 
         If compilation fails, this function raises a ``subprocess.CalledProcessError``.
         """
@@ -426,10 +428,12 @@ class PyVerilator:
         if which_verilator is None:
             raise Exception("'verilator' executable not found")
         verilog_defines = ["+define+" + x for x in verilog_defines]
+        parameters = ["-G" + x for x in parameters]
         # tracing (--trace) is required in order to see internal signals
         verilator_args = ['perl', which_verilator, '-Wno-fatal', '-Mdir', build_dir] \
                          + verilog_path_args \
                          + verilog_defines \
+                         + parameters \
                          + ['-CFLAGS',
                            '-fPIC -shared --std=c++14 -DVL_USER_FINISH',
                             '--trace',
