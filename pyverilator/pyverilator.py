@@ -370,7 +370,7 @@ class PyVerilator:
 
     @classmethod
     def build(cls, top_verilog_file, verilog_path = [], build_dir = 'obj_dir',
-              json_data = None, gen_only = False, quiet=False,
+              json_data = None, gen_only = False, quiet=False, top_module = "",
               command_args=(), verilog_defines=(), parameters=[]):
         """Build an object file from verilog and load it into python.
 
@@ -391,12 +391,15 @@ class PyVerilator:
 
         ``quiet`` hides the output of Verilator and its Makefiles while generating and compiling the C++ model.
 
+        ``top_module`` to define a top module in a multi module verilog file.
+
+        
         ``command_args`` is passed to Verilator as its argv.  It can be used to pass arguments to the $test$plusargs and $value$plusargs system tasks.
 
         ``verilog_defines`` is a list of preprocessor defines; each entry should be a string, and defined macros with value should be specified as "MACRO=value".
 
         ``parameters`` is a list of parameters to be passed to the Verilator model. Each entry should be a string in the form "PARAMETER_NAME=VALUE". Used for parameteric instantiation.
-
+                
         If compilation fails, this function raises a ``subprocess.CalledProcessError``.
         """
         # some simple type checking to look for easy errors to make that can be hard to debug
@@ -429,10 +432,16 @@ class PyVerilator:
             raise Exception("'verilator' executable not found")
         verilog_defines = ["+define+" + x for x in verilog_defines]
         parameters = ["-G" + x for x in parameters]
+        if top_module != "":
+            top_module = ["--top", f"{top_module}"] 
+        else:
+            top_module = []           
+        
         # tracing (--trace) is required in order to see internal signals
         verilator_args = ['perl', which_verilator, '-Wno-fatal', '-Mdir', build_dir] \
                          + verilog_path_args \
                          + verilog_defines \
+                         + top_module \
                          + parameters \
                          + ['-CFLAGS',
                            '-fPIC -shared --std=c++14 -DVL_USER_FINISH',
